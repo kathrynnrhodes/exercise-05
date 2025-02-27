@@ -1,0 +1,222 @@
+---
+title: "Exercise 05"
+author: "Kathryn Rhodes"
+date: "2025-02-27"
+output: html_document
+---
+
+## Exercise 05
+
+Challenge #1
+
+Uploading, filtering, and make histograms
+
+```{r}
+require(tidyverse)
+require(dplyr)
+require(radiant)
+require(mosaic)
+require(gridExtra)
+require(knitr)
+url <- "https://raw.githubusercontent.com/difiore/ada-datasets/main/IMDB-movies.csv"
+d <- read.csv(url, header = TRUE)
+d <- d |> filter(runtimeMinutes >= 60 & runtimeMinutes <= 180 & startYear %in% 1920:1979) |> mutate(decade = case_when(startYear %in% 1920:1929 ~ "20s",
+                                                                                                                       startYear %in% 1930:1939 ~ "30s",
+                                                                                                                       startYear %in% 1940:1949 ~ "40s",
+                                                                                                                       startYear %in% 1950:1959 ~ "50s",
+                                                                                                                       startYear %in% 1960:1969 ~ "60s",
+                                                                                                                       startYear %in% 1970:1979 ~ "70s"))
+a <- ggplot(data = d, aes(x = runtimeMinutes)) + geom_histogram(stat = "bin", bins = 20, colour = "black", fill = "lightpink") + facet_wrap(~ decade)
+print(a)
+```
+
+Population mean and population standard deviation in **runtimeMinutes** for each decade
+
+```{r}
+results <- d |> group_by(decade) |> dplyr::summarise(pop_n = n(), pop_mean = mean(runtimeMinutes, na.rm = TRUE), pop_sd = sdpop(runtimeMinutes, na.rm = TRUE))
+kable(results, digits = 3)
+```
+
+Step 5
+
+```{r}
+n <- 100
+set.seed(1)
+s <- d |> group_by(decade) |> slice_sample(n = 100, replace = FALSE) |> dplyr::summarise(samp_size = n(),
+                                                                                         sample_1_mean = mean(runtimeMinutes, na.rm = TRUE),
+                                                                                         sample_1_sd = sd(runtimeMinutes, na.rm = TRUE),
+                                                                                         sample_1_se = sd(runtimeMinutes, na.rm = TRUE)/sqrt(samp_size))
+kable(s, digits = 3)
+```
+
+Step 6-10
+
+```{r, cache = TRUE}
+require(mosaic)
+actual_population_mean <- inner_join(s, results, by = "decade") |> mutate(pop_se = pop_sd/sqrt(n))
+kable(actual_population_mean, digits =3)
+reps <- 1000
+    s <- {do(reps) * sample_n(group_by(d, decade), n, replace = FALSE)} |>
+  summarise(avg_runtimeMinutes = mean(runtimeMinutes, na.rm = TRUE), sd_runtimeMinutes = sd(runtimeMinutes, na.rm = TRUE))
+print(s)
+p <- ggplot(data=s, aes(avg_runtimeMinutes)) + geom_histogram(stat = "bin", bins=20, colour="black", fill="hotpink") + facet_wrap(~ decade)
+print(p)
+sample_comparison <- s |> group_by(decade) |> summarize(sample_cpmarison_mean = mean(avg_runtimeMinutes), sample_comparison_sd = sd(avg_runtimeMinutes))
+comparison <- inner_join(actual_population_mean, sample_comparison, by = "decade") |> dplyr::select(decade, pop_se, sample_1_se, sample_comparison_sd)
+kable(comparison, digits = 3)
+```
+
+Challenge #2
+
+Steps 1-2
+
+```{r}
+url2 <- "https://raw.githubusercontent.com/difiore/ada-datasets/main/zombies.csv"
+z <- read.csv(url2, header = TRUE)
+population_means <- dplyr::summarise(z, mean(height), mean(weight),  mean(age), mean(zombies_killed), mean(years_of_education))
+population_stdevs <- dplyr::summarise(z, sdpop(height), sdpop(weight), sdpop(age), sdpop(zombies_killed), sdpop(years_of_education))
+```
+
+Step 3
+
+```{r}
+height_by_gender <- ggplot(data = z, aes(x = gender, y = height))
+height_by_gender <- height_by_gender + geom_boxplot(aes(colour = factor(gender)))
+weight_by_gender <- ggplot(data = z, aes(x = gender, y = weight))
+weight_by_gender <- weight_by_gender + geom_boxplot(aes(colour = factor(gender)))
+age_by_gender <- ggplot(data = z, aes(x = gender, y = age))
+age_by_gender <- age_by_gender + geom_boxplot(aes(colour = factor(gender)))
+zombies_killed_by_gender <- ggplot(data = z, aes(x = gender, y = zombies_killed))
+zombies_killed_by_gender <- zombies_killed_by_gender + geom_boxplot(aes(colour = factor(gender)))
+years_of_education_by_gender <- ggplot(data = z, aes(x = gender, y = years_of_education))
+years_of_education_by_gender <- years_of_education_by_gender + geom_boxplot(aes(colour = factor(gender)))
+require(gridExtra)
+grid.arrange(height_by_gender, weight_by_gender, age_by_gender, zombies_killed_by_gender, years_of_education_by_gender, ncol = 3)
+```
+
+Step 4
+
+```{r}
+height_by_age <- ggplot(data = z, aes(x = age, y = height, colour = factor(gender)))
+height_by_age <- height_by_age + geom_point() + theme(legend.position = "right", legend.title = element_blank())
+weight_by_age <- ggplot(data = z, aes(x = age, y = weight, colour = factor(gender)))
+weight_by_age <- weight_by_age + geom_point() + theme(legend.position = "right", legend.title = element_blank())
+grid.arrange(height_by_age, weight_by_age, ncol = 2)
+```
+
+Step 5
+
+```{r}
+require(ggpubr)
+histo_height <- ggplot(data = z, aes(x = height)) + geom_histogram(bins = 20) + ggtitle("Height")
+histo_weight <- ggplot(data = z, aes(x = weight)) + geom_histogram(bins = 20) + ggtitle("Weight")
+histo_age <- ggplot(data = z, aes(x = age)) + geom_histogram(bins = 20) + ggtitle("Age")
+histo_zombies_killed <- ggplot(data = z, aes(x = zombies_killed)) + geom_histogram(bins = 20) + ggtitle("Zombies Killed")
+histo_years_of_education <- ggplot(data = z, aes(x = years_of_education)) + geom_histogram(bins = 20) + ggtitle("Years of Education")
+
+qq_height <- ggqqplot(data = z, x = "height")
+qq_weight <- ggqqplot(data = z, x = "weight")
+qq_age <- ggqqplot(data = z, x = "age")
+qq_zombies_killed <- ggqqplot(data = z, x = "zombies_killed")
+qq_years_of_education <- ggqqplot(data = z, x = "years_of_education")
+
+grid.arrange(histo_height, histo_weight, histo_age, histo_zombies_killed, histo_years_of_education, ncol = 3, nrow = 2)
+grid.arrange(qq_height, qq_weight, qq_age, qq_zombies_killed, qq_years_of_education, ncol = 3, nrow = 2)
+```
+
+Step 6
+
+```{r, cache=TRUE}
+require(dplyr)
+set.seed(1)
+n <- 50
+sample <- z |> slice_sample(n = n, replace = FALSE)
+se <- function(x, type = "normal") {
+  if(type == "normal") {
+    se <- sd(x)/sqrt(length(x))}
+  if(type == "poisson") {
+    se <- sqrt(mean(x)/length(x))}}
+sample_1_means <- z |> dplyr::summarise(across(.cols = c(height, weight, age, zombies_killed, years_of_education), .fns = ~ mean(.)))
+sample_1_sds <- z |> dplyr::summarise(across(.cols = c(height, weight, age, zombies_killed, years_of_education), .fns = ~ sd(.)))
+sample_1_ses <- z |> dplyr::summarise(across(.cols = c(height, weight, age), .fns = ~ se(., type = "normal")),
+                                      across(.cols = c(zombies_killed, years_of_education), .fns = ~ se(., type = "poisson")))
+
+ci_t <- function(x, alpha = 0.05) {
+  ci <- (mean(x) + c(-1,1) * qt(1 - alpha/2, length(x) - 1) * se(x)) |> round(3)
+  ci <- paste0("[", ci[1], "-", ci[2], "]")
+  names(ci) <- "CI"
+  return(ci)}
+sample_1_ci <- z |> dplyr::summarise(across(.cols = c(height, weight, age, zombies_killed, years_of_education), .fns = ~ ci_t(.)))
+sample_1_stats <- bind_rows(sample_1_means, sample_1_sds, sample_1_ses)
+sample_1_cis <- bind_rows(sample_1_ci)
+sample_1_summary <- bind_cols(t(sample_1_stats), t(sample_1_cis))
+names(sample_1_summary) <- c("Samp 1 mean", "Samp 1 SD", "Samp 1 SE", "Samp 1 CI t")
+kable(head(sample_1_summary), digits = 3)
+```
+
+Step 7
+
+```{r, cache=TRUE}
+require(mosaic)
+k <- 199
+additional_samples <- do(k) * slice_sample(z, n = n, replace = FALSE)
+sample <- z |> mutate(.row = 1, .index = k + 1)
+all_samples <- bind_rows(additional_samples, sample)
+samp_dist <- all_samples |>
+  group_by(.index) |>
+  dplyr::summarise(across(.cols = c(height, weight, age, zombies_killed, years_of_education), .fns = ~ mean(.))) |>
+  dplyr::select(-.index)
+samp_SEs <- all_samples |>
+  group_by(.index) |>
+  dplyr::summarise(across(.cols = c(height, weight, age), .fns = ~ se(., type = "normal")),
+                   across(.cols = c(`zombies_killed`, `years_of_education`), .fns = ~ se(., type = "poisson"))) |>
+  dplyr::select(-.index)
+samp_dist_means <- samp_dist |>  dplyr::summarise(across(.cols = everything(), .fns = ~ mean(.)))
+samp_dist_sds <- samp_dist |>  dplyr::summarise(across(.cols = everything(), .fns = ~ sd(.)))
+variables <- c("Height", "Weight", "Age", "Kills", "Years of Ed")
+samp_dist_summary <- bind_cols(variables, t(samp_dist_means), t(samp_dist_sds))
+names(samp_dist_summary) <- c("Variable", "Samp Dist mean", "Samp Dist SD")
+kable(samp_dist_summary, digits = 3)
+samp_SE_means <- samp_SEs |>  dplyr::summarise(across(.cols = everything(), .fns = ~ mean(.)))
+```
+
+Step 8
+
+```{r}
+
+p1 <- ggplot(data = samp_dist, aes(x = height)) +
+  geom_histogram(bins = 10) + ggtitle("Height Means")
+p2 <- ggqqplot(data = samp_dist, x = "height")
+p3 <- ggplot(data = samp_dist, aes(x = weight)) +
+  geom_histogram(bins = 10) + ggtitle("Weight Means")
+p4 <- ggqqplot(data = samp_dist, x = "weight")
+p5 <- ggplot(data = samp_dist, aes(x = age)) +
+  geom_histogram(bins = 10) + ggtitle("Age Means")
+p6 <- ggqqplot(data = samp_dist, x = "age")
+p7 <- ggplot(data = samp_dist, aes(x = zombies_killed)) +
+  geom_histogram(bins = 10) + ggtitle("Zombies Killed Means")
+p8 <- ggqqplot(data = samp_dist, x = "zombies_killed")
+p9 <- ggplot(data = samp_dist, aes(x = years_of_education)) +
+  geom_histogram(bins = 10) + ggtitle("Years of Education Means")
+p10 <- ggqqplot(data = samp_dist, x = "years_of_education")
+grid.arrange(p1, p3, p5, p2, p4, p6, nrow = 2)
+grid.arrange(p7, p9, p8, p10, nrow = 2)
+```
+
+Step 9
+
+```{r}
+ci_quantile <- function(x, level = 0.95){
+  ci <- quantile(x, c((1-level)/2, 1 - (1-level)/2)) |> round(3)
+  ci <- paste0("[", ci[1], "-", ci[2], "]")
+  names(ci) <- "CI"
+  return(ci)}
+samp_dist_CI <- dplyr::summarise(samp_dist, across(.cols = everything(), .fns =  ~ ci_quantile(., level = 0.95)))
+samp_dist_summary <- bind_cols(samp_dist_summary, t(samp_dist_CI))
+names(samp_dist_summary) <- c("Variable", "Samp Dist mean", "Samp Dist SD", "Samp Dist CI")
+kable(samp_dist_summary, digits = 3)
+compare_CIs <- dplyr::select(sample_1_summary, -c("Samp 1 mean", "Samp 1 SD", "Samp 1 SE")) |>
+  bind_cols("Samp Dist CI" = samp_dist_summary$`Samp Dist CI`)
+```
+
+Step 10
